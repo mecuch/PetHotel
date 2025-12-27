@@ -24,9 +24,3 @@ class BoksRepo:
     def close(self):
         self.cursor.close()
         self.connection.close()
-
-test = BoksRepo()
-testall = test.get_all_boxes()
-testavail = test.get_available_boxes()
-print(testall)
-print(testavail)
