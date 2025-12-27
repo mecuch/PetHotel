@@ -9,7 +9,7 @@ class ReservationRepo:
             password="12345",
             database="pet_hotel"
         )
-        self.cursor = self.connection.cursor()
+        self.cursor = self.connection.cursor(dictionary=True)
 
     def insert_reservation (self,
                             owner_id: int,
@@ -25,10 +25,16 @@ class ReservationRepo:
         self.connection.commit()
         return self.cursor.lastrowid
 
+    def list_reservations(self):
+        sql = """SELECT * FROM bookings ORDER BY created_at DESC"""
+        self.cursor.execute(sql)
+        records = self.cursor.fetchall()
+        return records
+
     def close(self):
         self.cursor.close()
         self.connection.close()
 
-test = ReservationRepo()
-insert = test.insert_reservation(1, 2, "2025-12-28", "2025-12-31", "only test")
-print("Wykonano rezerwacje o ID", insert)
+test_reservation = ReservationRepo()
+test_listning = test_reservation.list_reservations()
+print(test_listning)

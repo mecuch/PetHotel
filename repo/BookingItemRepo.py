@@ -31,7 +31,3 @@ class BookingItemRepo:
     def close(self):
         self.cursor.close()
         self.connection.close()
-
-test = BookingItemRepo()
-insert = test.create_item(2, 1, 24, 4, 0)
-print("Wykonano rezerwacje o ID", insert)

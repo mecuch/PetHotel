@@ -1,5 +1,3 @@
-from asyncio.windows_events import NULL
-
 import mysql.connector
 
 class OwnerRepo:
@@ -27,6 +25,16 @@ class OwnerRepo:
         self.cursor.execute(sql, (first_name, last_name, phone, email, adress, nip))
         self.connection.commit()
         return self.cursor.lastrowid
+
+    def find_by_email(self, email: str) -> int | None:
+        sql = """ SELECT id FROM owners WHERE email = %s LIMIT 1"""
+        self.cursor.execute(sql, (email,))
+        record = self.cursor.fetchone()
+        if record is None:
+            return None
+        else:
+            return record[0]
+
 
     def close(self):
         self.cursor.close()
