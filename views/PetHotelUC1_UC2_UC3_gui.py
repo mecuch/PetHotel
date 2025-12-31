@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from services.RezerwacjaService import ReservationService
+from services.BillingService import BillingService
 
 
 class PetHotel_GUI(tk.Tk):
@@ -12,6 +13,7 @@ class PetHotel_GUI(tk.Tk):
         self.resizable(False, False)
 
         self.service = ReservationService()
+        self.billing = BillingService()
 
         # --- Notebook (zakładki) ---
         self.nb = ttk.Notebook(self)
@@ -20,10 +22,12 @@ class PetHotel_GUI(tk.Tk):
         self.tab_uc1 = ttk.Frame(self.nb)
         self.tab_uc2 = ttk.Frame(self.nb)
         self.tab_uc3 = ttk.Frame(self.nb)
+        self.tab_uc4 = ttk.Frame(self.nb)
 
         self.nb.add(self.tab_uc1, text="UC1 – Rezerwacja")
         self.nb.add(self.tab_uc2, text="UC2 – Meldunek/Wymeldowanie")
         self.nb.add(self.tab_uc3, text="UC3 – Rozliczenie")
+        self.nb.add(self.tab_uc4, text="UC4 – Fakturowanie")
 
         # UC1
         self._build_uc1(self.tab_uc1)
@@ -33,6 +37,9 @@ class PetHotel_GUI(tk.Tk):
 
         # UC3
         self._build_uc3(self.tab_uc3)
+
+        # UC4
+        self._build_uc4(self.tab_uc4)
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -507,6 +514,167 @@ class PetHotel_GUI(tk.Tk):
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie udało się utworzyć rozliczenia:\n{e}")
 
+    # =========================================================
+    # UC4 – FAKTUROWANIE
+    # =========================================================
+
+    def _build_uc4(self, parent: ttk.Frame) -> None:
+        container = ttk.Frame(parent, padding=12)
+        container.pack(fill="both", expand=True)
+
+        # --- Panel danych wejściowych ---
+        top = ttk.LabelFrame(container, text="UC4 – Wystawianie faktury", padding=10)
+        top.pack(fill="x", pady=(0, 10))
+
+        self.uc4_settlement_id = self._labeled_entry(top, "Settlement ID*", 0, 0)
+
+        self.uc4_buyer_name = self._labeled_entry(top, "Nabywca – nazwa / imię i nazwisko*", 1, 0, colspan=3)
+        self.uc4_buyer_address = self._labeled_entry(top, "Nabywca – adres*", 2, 0, colspan=3)
+        self.uc4_buyer_nip = self._labeled_entry(top, "NIP (opcjonalnie)", 3, 0)
+
+        btns = ttk.Frame(top)
+        btns.grid(row=4, column=0, columnspan=4, sticky="w", pady=(8, 0))
+
+        ttk.Button(btns, text="Podgląd faktury", command=self.on_uc4_preview).pack(side="left")
+        ttk.Button(btns, text="Wystaw fakturę", command=self.on_uc4_create).pack(side="left", padx=8)
+        ttk.Button(btns, text="Odśwież listę faktur", command=self._refresh_invoices).pack(side="left", padx=8)
+
+        self.uc4_result_lbl = ttk.Label(top, text="")
+        self.uc4_result_lbl.grid(row=5, column=0, columnspan=4, sticky="w", pady=(8, 0))
+
+        # --- Podgląd faktury (mini) ---
+        preview = ttk.LabelFrame(container, text="Podgląd (light)", padding=10)
+        preview.pack(fill="x", pady=(0, 10))
+
+        self.uc4_preview_lbl = ttk.Label(preview, text="Numer: — | Kwota brutto: —")
+        self.uc4_preview_lbl.pack(anchor="w")
+
+        # --- Lista faktur ---
+        box = ttk.LabelFrame(container, text="Wystawione faktury", padding=10)
+        box.pack(fill="both", expand=True)
+
+        self.uc4_info_lbl = ttk.Label(box, text="")
+        self.uc4_info_lbl.pack(anchor="w", pady=(0, 6))
+
+        columns = ("id", "invoice_no", "settlement_id", "issued_at", "buyer_name", "buyer_nip", "gross_total", "status")
+        tree = ttk.Treeview(box, columns=columns, show="headings", height=14)
+        self.uc4_tree = tree
+
+        headers = {
+            "id": "ID",
+            "invoice_no": "Numer",
+            "settlement_id": "Settlement ID",
+            "issued_at": "Data",
+            "buyer_name": "Nabywca",
+            "buyer_nip": "NIP",
+            "gross_total": "Brutto",
+            "status": "Status",
+        }
+        for c in columns:
+            tree.heading(c, text=headers[c])
+
+        tree.column("id", width=60, anchor="center")
+        tree.column("invoice_no", width=140, anchor="center")
+        tree.column("settlement_id", width=100, anchor="center")
+        tree.column("issued_at", width=150, anchor="center")
+        tree.column("buyer_name", width=220, anchor="w")
+        tree.column("buyer_nip", width=110, anchor="center")
+        tree.column("gross_total", width=90, anchor="e")
+        tree.column("status", width=90, anchor="center")
+
+        tree.pack(fill="both", expand=True, side="left")
+
+        sb = ttk.Scrollbar(box, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=sb.set)
+        sb.pack(fill="y", side="right")
+
+        self._refresh_invoices()
+
+    def on_uc4_preview(self) -> None:
+        try:
+            settlement_id = self._opt_int(self._get_str(self.uc4_settlement_id))
+            if not settlement_id:
+                raise ValueError("Podaj Settlement ID.")
+
+            buyer_data = {
+                "buyer_name": self._get_str(self.uc4_buyer_name),
+                "buyer_address": self._get_str(self.uc4_buyer_address),
+                "buyer_nip": self._get_str(self.uc4_buyer_nip) or None,
+            }
+
+            preview = self.billing.invoice_preview_for_settlement(settlement_id, buyer_data)
+
+            no = preview["invoice_no"]
+            gross = float(preview["gross_total"])
+            self.uc4_preview_lbl.config(text=f"Numer: {no} | Kwota brutto: {gross:.2f}")
+            self.uc4_result_lbl.config(text="Podgląd wygenerowany.")
+
+        except ValueError as e:
+            messagebox.showerror("Błąd walidacji", str(e))
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się wygenerować podglądu:\n{e}")
+
+    def on_uc4_create(self) -> None:
+        try:
+            settlement_id = self._opt_int(self._get_str(self.uc4_settlement_id))
+            if not settlement_id:
+                raise ValueError("Podaj Settlement ID.")
+
+            buyer_data = {
+                "buyer_name": self._get_str(self.uc4_buyer_name),
+                "buyer_address": self._get_str(self.uc4_buyer_address),
+                "buyer_nip": self._get_str(self.uc4_buyer_nip) or None,
+            }
+
+            invoice_id = self.billing.create_invoice_for_settlement(settlement_id, buyer_data)
+
+            self.uc4_result_lbl.config(text=f"OK: invoice_id={invoice_id}")
+            messagebox.showinfo("Sukces", f"Wystawiono fakturę (invoice_id={invoice_id}).")
+            self._refresh_invoices()
+
+        except ValueError as e:
+            messagebox.showerror("Błąd walidacji", str(e))
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się wystawić faktury:\n{e}")
+
+    def _refresh_invoices(self) -> None:
+        for item in self.uc4_tree.get_children():
+            self.uc4_tree.delete(item)
+
+        try:
+            rows = self.billing.list_invoices()
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się pobrać faktur:\n{e}")
+            return
+
+        if not rows:
+            self.uc4_info_lbl.config(text="Brak faktur w bazie.")
+            return
+
+        self.uc4_info_lbl.config(text=f"Liczba faktur: {len(rows)}")
+
+        def fmt(v):
+            try:
+                return v.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                return "" if v is None else str(v)
+
+        for r in rows:
+            self.uc4_tree.insert(
+                "",
+                "end",
+                values=(
+                    r.get("id"),
+                    r.get("invoice_no"),
+                    r.get("settlement_id"),
+                    fmt(r.get("issued_at")),
+                    r.get("buyer_name"),
+                    r.get("buyer_nip") or "",
+                    f"{float(r.get('gross_total')):.2f}",
+                    r.get("status"),
+                ),
+            )
+
     @staticmethod
     def _get_str(entry: ttk.Entry) -> str:
         return entry.get().strip()
@@ -528,6 +696,10 @@ class PetHotel_GUI(tk.Tk):
     def on_close(self) -> None:
         try:
             self.service.close()
+        except Exception:
+            pass
+        try:
+            self.billing.close()
         except Exception:
             pass
         self.destroy()
