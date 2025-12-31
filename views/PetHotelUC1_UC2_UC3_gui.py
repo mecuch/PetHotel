@@ -19,15 +19,20 @@ class PetHotel_GUI(tk.Tk):
 
         self.tab_uc1 = ttk.Frame(self.nb)
         self.tab_uc2 = ttk.Frame(self.nb)
+        self.tab_uc3 = ttk.Frame(self.nb)
 
         self.nb.add(self.tab_uc1, text="UC1 – Rezerwacja")
         self.nb.add(self.tab_uc2, text="UC2 – Meldunek/Wymeldowanie")
+        self.nb.add(self.tab_uc3, text="UC3 – Rozliczenie")
 
         # UC1
         self._build_uc1(self.tab_uc1)
 
         # UC2
         self._build_uc2(self.tab_uc2)
+
+        # UC3
+        self._build_uc3(self.tab_uc3)
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -280,7 +285,7 @@ class PetHotel_GUI(tk.Tk):
             )
 
     # =========================================================
-    # Okno rezerwacji (z Twojego UC1)
+    # Okno rezerwacji
     # =========================================================
 
     def open_reservations_window(self) -> None:
@@ -391,6 +396,116 @@ class PetHotel_GUI(tk.Tk):
         cmb.grid(row=row, column=col + 1, sticky="we", padx=6, pady=4)
         cmb.set(values[0])
         return cmb
+
+    # =========================================================
+    # UC3 – ROZLICZENIE
+    # =========================================================
+
+    def _build_uc3(self, parent: ttk.Frame) -> None:
+        container = ttk.Frame(parent, padding=12)
+        container.pack(fill="both", expand=True)
+
+        # --- Panel wejścia ---
+        top = ttk.LabelFrame(container, text="UC3 – Rozliczenie rezerwacji", padding=10)
+        top.pack(fill="x", pady=(0, 10))
+
+        self.uc3_booking_id = self._labeled_entry(top, "Booking ID*", 0, 0)
+
+        btns = ttk.Frame(top)
+        btns.grid(row=1, column=0, columnspan=4, sticky="w", pady=(6, 0))
+
+        ttk.Button(btns, text="Podgląd rozliczenia", command=self.on_uc3_preview).pack(side="left")
+        ttk.Button(btns, text="Zapisz rozliczenie", command=self.on_uc3_create).pack(side="left", padx=8)
+
+        self.uc3_result_lbl = ttk.Label(top, text="")
+        self.uc3_result_lbl.grid(row=2, column=0, columnspan=4, sticky="w", pady=(8, 0))
+
+        # --- Tabela pozycji ---
+        items_box = ttk.LabelFrame(container, text="Pozycje rozliczenia", padding=10)
+        items_box.pack(fill="both", expand=True)
+
+        columns = ("item_name", "qty", "unit_price", "discount", "line_total")
+        tree = ttk.Treeview(items_box, columns=columns, show="headings", height=14)
+        self.uc3_tree = tree
+
+        headers = {
+            "item_name": "Pozycja",
+            "qty": "Ilość",
+            "unit_price": "Cena jedn.",
+            "discount": "Rabat %",
+            "line_total": "Wartość",
+        }
+        for c in columns:
+            tree.heading(c, text=headers[c])
+
+        tree.column("item_name", width=260, anchor="w")
+        tree.column("qty", width=80, anchor="center")
+        tree.column("unit_price", width=120, anchor="e")
+        tree.column("discount", width=100, anchor="center")
+        tree.column("line_total", width=120, anchor="e")
+
+        tree.pack(fill="both", expand=True, side="left")
+
+        sb = ttk.Scrollbar(items_box, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=sb.set)
+        sb.pack(fill="y", side="right")
+
+        self.uc3_total_lbl = ttk.Label(container, text="Suma brutto: 0.00")
+        self.uc3_total_lbl.pack(anchor="e", pady=(6, 0))
+
+    def on_uc3_preview(self) -> None:
+        # wyczyść tabelę
+        for item in self.uc3_tree.get_children():
+            self.uc3_tree.delete(item)
+
+        try:
+            booking_id = self._opt_int(self._get_str(self.uc3_booking_id))
+            if not booking_id:
+                raise ValueError("Podaj Booking ID.")
+
+            preview = self.service.calculate_settlement_preview(booking_id)
+
+            total = preview["gross_total"]
+
+            for it in preview["items"]:
+                self.uc3_tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        it["item_name"],
+                        it["qty"],
+                        f"{it['unit_price']:.2f}",
+                        f"{it['discount_percent']:.2f}",
+                        f"{it['line_total']:.2f}",
+                    ),
+                )
+
+            self.uc3_total_lbl.config(text=f"Suma brutto: {total:.2f}")
+            self.uc3_result_lbl.config(text="Podgląd wygenerowany.")
+
+        except ValueError as e:
+            messagebox.showerror("Błąd walidacji", str(e))
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się wygenerować podglądu:\n{e}")
+
+    def on_uc3_create(self) -> None:
+        try:
+            booking_id = self._opt_int(self._get_str(self.uc3_booking_id))
+            if not booking_id:
+                raise ValueError("Podaj Booking ID.")
+
+            settlement_id = self.service.create_settlement(booking_id)
+
+            self.uc3_result_lbl.config(text=f"OK: settlement_id={settlement_id}")
+            messagebox.showinfo(
+                "Sukces",
+                f"Utworzono rozliczenie (settlement_id={settlement_id})."
+            )
+
+        except ValueError as e:
+            messagebox.showerror("Błąd walidacji", str(e))
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się utworzyć rozliczenia:\n{e}")
 
     @staticmethod
     def _get_str(entry: ttk.Entry) -> str:
