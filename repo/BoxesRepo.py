@@ -43,7 +43,7 @@ class BoksRepo:
 
     def set_status(self, box_id: int, status: str) -> None:
         """
-        Ustawia status boksu (AVAILABLE / OCCUPIED).
+        Ustawia status boksu.
         """
         self.cursor.execute("UPDATE boxes SET status = %s WHERE id = %s", (status, box_id))
         self.connection.commit()

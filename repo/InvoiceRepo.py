@@ -1,6 +1,4 @@
-# repo/InvoiceRepo.py
 import mysql.connector
-
 
 class InvoiceRepo:
     def __init__(self):

@@ -36,7 +36,7 @@ class ReservationRepo:
 
     def get_reservation(self, booking_id: int) -> dict | None:
         """
-        Pobiera pojedynczą rezerwację po ID (UC2: wyszukaj istniejącą rezerwację).
+        Pobiera pojedynczą rezerwację po ID.
         """
         sql = "SELECT * FROM bookings WHERE id = %s LIMIT 1"
         self.cursor.execute(sql, (booking_id,))
@@ -48,15 +48,6 @@ class ReservationRepo:
         """
         sql = "UPDATE bookings SET status = %s WHERE id = %s"
         self.cursor.execute(sql, (status, booking_id))
-        self.connection.commit()
-
-    # (opcjonalne, ale przydatne) - jeśli chcesz zmienić boks przy meldunku
-    def set_box(self, booking_id: int, box_id: int) -> None:
-        """
-        Podmienia box_id w rezerwacji (gdy recepcjonista robi relokację).
-        """
-        sql = "UPDATE bookings SET box_id = %s WHERE id = %s"
-        self.cursor.execute(sql, (box_id, booking_id))
         self.connection.commit()
 
     def close(self):

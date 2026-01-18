@@ -20,7 +20,7 @@ class OwnerRepo:
                      nip: int = None) -> int:
         sql = """
                     INSERT INTO owners (first_name, last_name, phone, email, adress, nip)
-                    VALUES (%s, %s,  %s, %s, %s, nip)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                 """
         self.cursor.execute(sql, (first_name, last_name, phone, email, adress, nip))
         self.connection.commit()

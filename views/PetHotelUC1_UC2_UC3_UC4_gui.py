@@ -64,7 +64,7 @@ class PetHotel_GUI(tk.Tk):
         self.owner_last_name = self._labeled_entry(frm, "Nazwisko*", 0, 2)
         self.owner_phone = self._labeled_entry(frm, "Telefon", 1, 0)
         self.owner_email = self._labeled_entry(frm, "Email", 1, 2)
-        self.owner_address = self._labeled_entry(frm, "Adres", 2, 0, colspan=3)
+        self.owner_adress = self._labeled_entry(frm, "Adres", 2, 0, colspan=3)
         self.owner_nip = self._labeled_entry(frm, "NIP (opcjonalnie)", 3, 0)
 
         ttk.Label(frm, text="* pola wymagane (min. email lub telefon)").grid(
@@ -112,8 +112,7 @@ class PetHotel_GUI(tk.Tk):
                 "last_name": self._get_str(self.owner_last_name),
                 "phone": self._get_str(self.owner_phone) or None,
                 "email": self._get_str(self.owner_email) or None,
-                # UWAGA: w OwnerRepo masz "adress" – tu mapujemy z pola GUI "address"
-                "adress": self._get_str(self.owner_address),
+                "adress": self._get_str(self.owner_adress),
                 "nip": self._opt_int(self._get_str(self.owner_nip)),
             }
 

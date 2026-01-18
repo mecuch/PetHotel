@@ -1,6 +1,4 @@
-# services/BillingService.py
 from datetime import datetime
-
 from repo.SettlementRepo import SettlementRepo
 from repo.SettlementItemRepo import SettlementItemRepo
 from repo.InvoiceRepo import InvoiceRepo
@@ -33,7 +31,6 @@ class BillingService:
             buyer_data["buyer_nip"] = None
             return
 
-        # LIGHT: prosta walidacja NIP (10 cyfr)
         if not nip.isdigit() or len(nip) != 10:
             raise ValueError("Nabywca: NIP musi mieć 10 cyfr (albo zostaw puste).")
 
@@ -42,8 +39,34 @@ class BillingService:
     # ---------------- PODGLĄD ----------------
 
     def invoice_preview_for_settlement(self, settlement_id: int, buyer_data: dict) -> dict:
+        """
+        Zwraca:
+        - jeśli faktura istnieje: jej dane + pozycje (podgląd po utworzeniu)
+        - jeśli nie istnieje: podgląd przed utworzeniem (proponowany numer)
+        """
         if not isinstance(settlement_id, int) or settlement_id <= 0:
             raise ValueError("settlement_id musi być dodatnią liczbą całkowitą.")
+
+
+        existing = self.invoice_repo.get_by_settlement_id(settlement_id)
+        if existing:
+
+            items = self.settlement_item_repo.list_items_for_settlement(settlement_id)
+
+            issued_at = existing.get("issued_at") or existing.get("created_at") or datetime.now()
+
+            return {
+                "invoice_id": existing["id"],
+                "invoice_no": existing["invoice_no"],
+                "issued_at": issued_at,
+                "buyer_name": existing["buyer_name"],
+                "buyer_address": existing["buyer_address"],
+                "buyer_nip": existing.get("buyer_nip"),
+                "gross_total": float(existing["gross_total"]),
+                "settlement": self.settlement_repo.get_by_id(settlement_id),
+                "items": items,
+                "mode": "EXISTING",
+            }
 
         self._validate_buyer(buyer_data)
 
@@ -51,16 +74,13 @@ class BillingService:
         if not settlement:
             raise ValueError("Nie znaleziono rozliczenia o podanym settlement_id.")
 
-        existing = self.invoice_repo.get_by_settlement_id(settlement_id)
-        if existing:
-            raise ValueError(f"Faktura już istnieje (invoice_id={existing['id']}, nr={existing['invoice_no']}).")
-
         year = datetime.now().year
         invoice_no = self.invoice_repo.get_next_invoice_number_for_year(year)
 
         items = self.settlement_item_repo.list_items_for_settlement(settlement_id)
 
         return {
+            "invoice_id": None,
             "invoice_no": invoice_no,
             "issued_at": datetime.now(),
             "buyer_name": buyer_data["buyer_name"].strip(),
@@ -68,21 +88,13 @@ class BillingService:
             "buyer_nip": buyer_data.get("buyer_nip"),
             "gross_total": float(settlement["gross_total"]),
             "settlement": settlement,
-            "items": items,  # light: do podglądu, nie zapisujemy osobno w invoices
+            "items": items,
+            "mode": "PREVIEW",
         }
 
     # ---------------- UTWORZENIE FAKTURY ----------------
 
     def create_invoice_for_settlement(self, settlement_id: int, buyer_data: dict) -> int:
-        """
-        UC4 (LIGHT):
-        - settlement istnieje
-        - brak istniejącej faktury dla settlement
-        - walidacja danych nabywcy
-        - generacja numeru faktury
-        - INSERT do invoices
-        Zwraca: invoice_id
-        """
         if not isinstance(settlement_id, int) or settlement_id <= 0:
             raise ValueError("settlement_id musi być dodatnią liczbą całkowitą.")
 
@@ -108,7 +120,6 @@ class BillingService:
             gross_total=float(settlement["gross_total"]),
             status="ISSUED",
         )
-
         return invoice_id
 
     # ---------------- HELPERY ----------------

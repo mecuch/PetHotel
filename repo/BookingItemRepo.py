@@ -50,7 +50,6 @@ class BookingItemRepo:
     def list_animals_for_booking(self, booking_id: int) -> list[int]:
         """
         Zwraca listę animal_id przypisanych do rezerwacji.
-        UC2 (light) używa pierwszego elementu.
         """
         sql = """
             SELECT animal_id
@@ -64,7 +63,7 @@ class BookingItemRepo:
 
     def get_item(self, booking_id: int, animal_id: int) -> dict | None:
         """
-        Zwraca konkretną pozycję rezerwacji (przydatne później do UC3).
+        Zwraca konkretną pozycję rezerwacji
         """
         sql = """
             SELECT id, booking_id, animal_id, daily_price, days, discount_percent

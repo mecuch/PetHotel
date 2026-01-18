@@ -1,4 +1,4 @@
-# services/RezerwacjaService.py
+
 from datetime import date
 
 from repo.OwnerRepo import OwnerRepo
@@ -98,7 +98,7 @@ class ReservationService:
         return booking_id
 
     # =========================================================
-    # UC2 (UNAVAILABLE)
+    # UC2
     # =========================================================
 
     def check_in(self, booking_id: int, box_id_override: int | None = None) -> int:
@@ -194,7 +194,6 @@ class ReservationService:
         gross_total = 0.0
 
         for it in items:
-            # BookingItemRepo zwraca dict: id, booking_id, animal_id, daily_price, days, discount_percent
             animal_id = it["animal_id"]
             days = int(it["days"])
             daily_price = float(it["daily_price"])
@@ -235,7 +234,6 @@ class ReservationService:
         if not booking:
             raise ValueError("Nie znaleziono rezerwacji o podanym booking_id.")
 
-        # zalecane w projekcie: rozliczamy dopiero po zakończeniu pobytu
         if booking["status"] != "FINISHED":
             raise ValueError("Rozliczenie możliwe dopiero dla rezerwacji o statusie FINISHED.")
 

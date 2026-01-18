@@ -1,4 +1,3 @@
-# repo/SettlementRepo.py
 import mysql.connector
 
 

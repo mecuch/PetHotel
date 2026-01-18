@@ -21,7 +21,7 @@ class AnimalRepo:
                       notes: str) -> int:
         sql = """
                             INSERT INTO animals (owner_id, name, species, breed, birth_date, weight, notes)
-                            VALUES (%s, %s,  %s, %s, %s, %s, %s)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
                         """
         self.cursor.execute(sql, (owner_id, name, species, breed, birth_date, weight, notes))
         self.connection.commit()
